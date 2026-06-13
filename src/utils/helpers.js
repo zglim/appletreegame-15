@@ -1,55 +1,36 @@
+/**
+ * Pure geometry helpers.
+ * They take config values as arguments (defaulted to GAME_CONFIG) so that
+ * they remain deterministic and easy to unit-test.
+ */
+import { GAME_CONFIG } from "@/config/game";
+
 export function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-export function xPos(i) {
-  const minBasketX = 22;
-  const offset = 25;
-  if (i < 5) {
-    return minBasketX + i * offset;
-  }
-  if (i < 10) {
-    return minBasketX + (i - 5) * offset;
-  }
-  return minBasketX + (i - 5) * offset;
+export function basketXPos(i, cfg = GAME_CONFIG) {
+  const row = Math.floor(i / cfg.BASKET_ROW_SIZE);
+  const col = i - row * cfg.BASKET_ROW_SIZE;
+  return cfg.BASKET_X_MIN + col * cfg.BASKET_X_OFFSET;
 }
 
-export function yPos(i) {
-  const basketFirstLine = 52;
-  const basketSecondLine = 30;
-  if (i < 5) {
-    return basketFirstLine;
-  } else if (i < 10) {
-    return basketSecondLine;
-  }
-  return (basketFirstLine + basketSecondLine) / 2;
+export function basketYPos(i, cfg = GAME_CONFIG) {
+  const row = Math.floor(i / cfg.BASKET_ROW_SIZE);
+  if (row === 0) return cfg.BASKET_LINE_1_Y;
+  if (row === 1) return cfg.BASKET_LINE_2_Y;
+  return (cfg.BASKET_LINE_1_Y + cfg.BASKET_LINE_2_Y) / 2;
 }
 
-export function treeXPos(yPosValue) {
-  if (yPosValue < 40) {
-    return randomInt(920, 950);
+export function treeXPos(yValue, cfg = GAME_CONFIG) {
+  for (const band of cfg.TREE_X_BANDS) {
+    if (yValue < band.maxY) {
+      return randomInt(band.xMin, band.xMax);
+    }
   }
-  if (yPosValue < 90) {
-    return randomInt(750, 1050);
-  }
-  if (yPosValue < 130) {
-    return randomInt(690, 1200);
-  }
-  if (yPosValue < 190) {
-    return randomInt(650, 1230);
-  }
-  if (yPosValue < 285) {
-    return randomInt(650, 1250);
-  }
-  if (yPosValue < 340) {
-    return randomInt(750, 1150);
-  }
-  return randomInt(750, 1150);
+  return randomInt(cfg.TREE_X_FALLBACK_MIN, cfg.TREE_X_FALLBACK_MAX);
 }
 
-export function treeYPos(i, yPosValue) {
-  const max = 340;
-  const min = 30;
-  yPosValue.push(randomInt(min, max));
-  return [yPosValue, yPosValue[i]];
+export function randomTreeY(cfg = GAME_CONFIG) {
+  return randomInt(cfg.TREE_Y_MIN, cfg.TREE_Y_MAX);
 }

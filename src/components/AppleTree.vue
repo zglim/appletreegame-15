@@ -1,13 +1,23 @@
 <script setup>
-import AppleTree from '@/components/icons/AppleTree.vue'
-import { useAppleTreeStore } from '@/stores/index'
-const appleStore = useAppleTreeStore()
+import AppleTree from "@/components/icons/AppleTree.vue";
+import { PHASE } from "@/config/game";
 
+defineProps({
+  phase: { type: String, required: true },
+});
+
+const emit = defineEmits(["shake"]);
 </script>
 
 <template>
-  <div :class="{ shake: appleStore.shackingStatus }" @contextmenu.prevent>
-    <AppleTree class="apple-tree" @click="appleStore.shakeTree()" />
+  <div
+    :class="{ shake: phase === PHASE.SHAKING }"
+    @contextmenu.prevent
+  >
+    <AppleTree
+      class="apple-tree"
+      @click="phase === PHASE.IDLE && emit('shake')"
+    />
   </div>
 </template>
 

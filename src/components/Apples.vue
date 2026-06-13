@@ -1,17 +1,18 @@
 <script setup>
-import { onMounted } from "vue";
-import { useAppleTreeStore } from "@/stores/index";
-const appleStore = useAppleTreeStore();
+import { PHASE } from "@/config/game";
 
-onMounted(() => {
-  appleStore.treeApple();
-  appleStore.basketApple();
+defineProps({
+  phase: { type: String, required: true },
 });
 </script>
 
 <template>
-  <svg v-show="!appleStore.appleIsGroundStatus" id="apples" class="red-apple"
-    :class="{ shake: appleStore.shackingStatus }"></svg>
+  <svg
+    v-show="phase !== PHASE.GROUNDED && phase !== PHASE.BASKETED"
+    id="apples"
+    class="red-apple"
+    :class="{ shake: phase === PHASE.SHAKING }"
+  />
 </template>
 
 <style scoped>

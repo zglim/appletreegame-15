@@ -1,12 +1,19 @@
 <script setup>
 import Basket from "@/components/icons/Basket.vue";
-import { useAppleTreeStore } from "@/stores/index";
-const appleStore = useAppleTreeStore();
+import { PHASE } from "@/config/game";
+
+defineProps({
+  phase: { type: String, required: true },
+});
 </script>
 
 <template>
   <div class="basket" @contextmenu.prevent>
-    <svg v-show="appleStore.appleIsGroundStatus" id="basket_apples" class="basket_apple"></svg>
+    <svg
+      v-show="phase === PHASE.GROUNDED || phase === PHASE.BASKETED"
+      id="basket_apples"
+      class="basket_apple"
+    />
     <Basket class="basket-icon" />
   </div>
 </template>

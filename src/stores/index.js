@@ -1,104 +1,86 @@
 import { defineStore } from "pinia";
-import * as d3 from "d3";
-import { xPos, yPos, randomInt, treeXPos } from "@/utils/helpers";
+import { GAME_CONFIG, PHASE, PHASE_TRANSITIONS } from "@/config/game";
 
+/**
+ * Pure state store.
+ *
+ * This store is the *single source of truth* for game state.
+ * It knows nothing about D3, DOM nodes or timers — those live in
+ * the composable layer (useAppleAnimation).
+ */
 export const useAppleTreeStore = defineStore("appleTree", {
   state: () => ({
-    shacking: false,
+    /** @type {keyof typeof PHASE} */
+    phase: PHASE.IDLE,
+    /** Whether the user has started a session (for router guard) */
     playing: false,
-    appleIsGround: false,
-    appleIsBasket: false,
-    appleSize: { width: 40, height: 40 },
-    yPosValue: [],
-    svg: [],
-    basketSvg: [],
   }),
+
   getters: {
-    shackingStatus: (state) => state.shacking,
+    phaseStatus: (state) => state.phase,
     playingStatus: (state) => state.playing,
-    appleIsGroundStatus: (state) => state.appleIsGround,
-    svgData: (state) => state.svg,
-    basketSvgData: (state) => state.basketSvg,
-    appleIsBasketStatus: (state) => state.appleIsBasket,
+
+    // Convenience boolean getters for templates that only need a yes/no.
+    isShaking: (state) => state.phase === PHASE.SHAKING,
+    isFalling: (state) => state.phase === PHASE.FALLING,
+    isGrounded: (state) => state.phase === PHASE.GROUNDED,
+    isBasketed: (state) => state.phase === PHASE.BASKETED,
+    isEnded: (state) => state.phase === PHASE.BASKETED,
   },
+
   actions: {
+    /**
+     * Move to a new phase. Throws if the transition is invalid so bugs
+     * surface early during development (silently ignored in prod if desired).
+     */
+    transition(nextPhase) {
+      const allowed = PHASE_TRANSITIONS[this.phase] || [];
+      if (!allowed.includes(nextPhase)) {
+        if (process.env.NODE_ENV !== "production") {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[appleTree] invalid transition ${this.phase} -> ${nextPhase}`,
+          );
+        }
+        return false;
+      }
+      this.phase = nextPhase;
+      return true;
+    },
+
     setPlayingStatus(status) {
       this.playing = status;
-      sessionStorage.setItem("playing", status);
-    },
-    setShackingStatus(status) {
-      this.shacking = status;
-      sessionStorage.setItem("shacking", status);
-    },
-    setAppleIsGroundStatus(status) {
-      this.appleIsGround = status;
-      sessionStorage.setItem("appleIsGround", status);
-    },
-    setAppleIsBasketStatus(status) {
-      this.appleIsBasket = status;
-      sessionStorage.setItem("appleIsBasket", status);
+      sessionStorage.setItem("playing", String(status));
     },
 
-    // Tree Random Seed yPos
-    treeYPos(i) {
-      const max = 340;
-      const min = 30;
-      this.yPosValue.push(randomInt(min, max));
-      return this.yPosValue[i];
+    /** Start the shake → fall → ground → basket sequence. */
+    startShake() {
+      this.transition(PHASE.SHAKING);
     },
 
-    treeApple() {
-      const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
-        .href;
+    /** Called by the animation layer once apples actually begin dropping. */
+    startFalling() {
+      this.transition(PHASE.FALLING);
+    },
 
-      for (let i = 0; i < 15; i++) {
-        const tree_apple = d3
-          .select("#apples")
-          .append("svg:image")
-          .attr("xlink:href", imgUrl)
-          .attr("width", this.appleSize.width)
-          .attr("height", this.appleSize.height)
-          .attr("y", this.treeYPos(i))
-          .attr("x", treeXPos(this.yPosValue[i]));
-        this.svg.push(tree_apple);
-      }
+    /** Apples have landed on the ground. */
+    setGrounded() {
+      this.transition(PHASE.GROUNDED);
     },
-    basketApple() {
-      const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
-        .href;
-      for (let i = 0; i < 10; i++) {
-        const basket_apple = d3
-          .select("#basket_apples")
-          .append("svg:image")
-          .attr("xlink:href", imgUrl)
-          .attr("width", this.appleSize.width)
-          .attr("height", this.appleSize.height)
-          .attr("x", xPos(i))
-          .attr("y", yPos(i));
-        this.basketSvg.push(basket_apple);
-      }
-      setTimeout(() => {
-        this.setAppleIsBasketStatus(true);
-      }, 5000);
+
+    /** Basket is full — game over. */
+    setBasketed() {
+      this.transition(PHASE.BASKETED);
     },
-    dropDownApples() {
-      for (let i = 0; i < this.svg.length; i++) {
-        this.svg[i]
-          .transition()
-          .attr("y", 850)
-          .duration(1000)
-          .delay(d3.randomInt(1000, 2000));
-      }
-      setTimeout(() => {
-        this.setAppleIsGroundStatus(true);
-        this.setShackingStatus(false);
-      }, 3000);
-    },
-    shakeTree() {
-      this.setShackingStatus(true);
-      setTimeout(() => {
-        this.dropDownApples();
-      }, 100);
+
+    /** Reset everything back to a clean slate. */
+    reset() {
+      this.phase = PHASE.IDLE;
+      this.playing = false;
+      sessionStorage.removeItem("playing");
+      sessionStorage.removeItem("shacking");
+      sessionStorage.removeItem("appleIsGround");
+      sessionStorage.removeItem("appleIsBasket");
     },
   },
 });
