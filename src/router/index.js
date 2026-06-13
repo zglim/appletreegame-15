@@ -14,14 +14,26 @@ const router = createRouter({
       name: "game",
       component: () => import("../views/GameView.vue"),
       beforeEnter: (to, from, next) => {
-        sessionStorage.getItem("playing") === "true" ? next() : next("/");
+        const playing = sessionStorage.getItem("playing");
+        const appleIsBasket = sessionStorage.getItem("appleIsBasket");
+        // Allow entry only if game is active and not already finished
+        if (playing === "true" && appleIsBasket !== "true") {
+          next();
+        } else {
+          // Clean up stale session data before redirecting
+          sessionStorage.removeItem("playing");
+          sessionStorage.removeItem("shacking");
+          sessionStorage.removeItem("appleIsGround");
+          sessionStorage.removeItem("appleIsBasket");
+          next({ name: "home" });
+        }
       },
     },
     {
       path: "/:pathMatch(.*)*",
       name: "not-found",
       component: () => import("../views/NotFoundView.vue"),
-    }
+    },
   ],
 });
 
