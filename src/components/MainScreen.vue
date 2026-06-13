@@ -4,6 +4,8 @@ import router from "@/router/index.js";
 const appleStore = useAppleTreeStore();
 
 function playNow() {
+  // Reset any stale state from a previous game before starting fresh
+  appleStore.resetGame();
   appleStore.setPlayingStatus(true);
   router.push({ name: "game" });
 }

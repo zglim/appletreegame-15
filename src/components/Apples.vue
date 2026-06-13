@@ -4,8 +4,14 @@ import { useAppleTreeStore } from "@/stores/index";
 const appleStore = useAppleTreeStore();
 
 onMounted(() => {
-  appleStore.treeApple();
-  appleStore.basketApple();
+  // Only create apple SVG nodes if they haven't been created yet for this game session.
+  // This prevents duplicates if the component is re-mounted unexpectedly.
+  if (appleStore.svgData.length === 0) {
+    appleStore.treeApple();
+  }
+  if (appleStore.basketSvgData.length === 0) {
+    appleStore.basketApple();
+  }
 });
 </script>
 

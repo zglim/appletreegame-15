@@ -12,6 +12,12 @@ export const useAppleTreeStore = defineStore("appleTree", {
     yPosValue: [],
     svg: [],
     basketSvg: [],
+    // Timer IDs for cleanup
+    _basketTimer: null,
+    _dropTimer: null,
+    _shakeTimer: null,
+    // Re-entry guard: true while shake+drop animation is in progress
+    isAnimating: false,
   }),
   getters: {
     shackingStatus: (state) => state.shacking,
@@ -24,19 +30,19 @@ export const useAppleTreeStore = defineStore("appleTree", {
   actions: {
     setPlayingStatus(status) {
       this.playing = status;
-      sessionStorage.setItem("playing", status);
+      sessionStorage.setItem("playing", String(status));
     },
     setShackingStatus(status) {
       this.shacking = status;
-      sessionStorage.setItem("shacking", status);
+      sessionStorage.setItem("shacking", String(status));
     },
     setAppleIsGroundStatus(status) {
       this.appleIsGround = status;
-      sessionStorage.setItem("appleIsGround", status);
+      sessionStorage.setItem("appleIsGround", String(status));
     },
     setAppleIsBasketStatus(status) {
       this.appleIsBasket = status;
-      sessionStorage.setItem("appleIsBasket", status);
+      sessionStorage.setItem("appleIsBasket", String(status));
     },
 
     // Tree Random Seed yPos
@@ -48,6 +54,11 @@ export const useAppleTreeStore = defineStore("appleTree", {
     },
 
     treeApple() {
+      // Clear any existing apple SVG nodes before creating new ones
+      d3.select("#apples").selectAll("*").remove();
+      this.svg = [];
+      this.yPosValue = [];
+
       const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
         .href;
 
@@ -64,6 +75,10 @@ export const useAppleTreeStore = defineStore("appleTree", {
       }
     },
     basketApple() {
+      // Clear any existing basket apple SVG nodes before creating new ones
+      d3.select("#basket_apples").selectAll("*").remove();
+      this.basketSvg = [];
+
       const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
         .href;
       for (let i = 0; i < 10; i++) {
@@ -77,7 +92,12 @@ export const useAppleTreeStore = defineStore("appleTree", {
           .attr("y", yPos(i));
         this.basketSvg.push(basket_apple);
       }
-      setTimeout(() => {
+      // Clear any existing basket timer before setting a new one
+      if (this._basketTimer !== null) {
+        clearTimeout(this._basketTimer);
+      }
+      this._basketTimer = setTimeout(() => {
+        this._basketTimer = null;
         this.setAppleIsBasketStatus(true);
       }, 5000);
     },
@@ -89,16 +109,74 @@ export const useAppleTreeStore = defineStore("appleTree", {
           .duration(1000)
           .delay(d3.randomInt(1000, 2000));
       }
-      setTimeout(() => {
+      // Clear any existing drop timer before setting a new one
+      if (this._dropTimer !== null) {
+        clearTimeout(this._dropTimer);
+      }
+      this._dropTimer = setTimeout(() => {
+        this._dropTimer = null;
         this.setAppleIsGroundStatus(true);
         this.setShackingStatus(false);
+        this.isAnimating = false;
       }, 3000);
     },
     shakeTree() {
+      // Re-entry guard: prevent multiple shakes during animation
+      if (this.isAnimating) {
+        return;
+      }
+      this.isAnimating = true;
       this.setShackingStatus(true);
-      setTimeout(() => {
+      // Clear any existing shake timer before setting a new one
+      if (this._shakeTimer !== null) {
+        clearTimeout(this._shakeTimer);
+      }
+      this._shakeTimer = setTimeout(() => {
+        this._shakeTimer = null;
         this.dropDownApples();
       }, 100);
+    },
+
+    /**
+     * Full game reset: clears timers, DOM nodes, arrays, and all state.
+     * Used when returning to home from end screen or starting a new game.
+     */
+    resetGame() {
+      // 1. Clear all pending timers
+      if (this._basketTimer !== null) {
+        clearTimeout(this._basketTimer);
+        this._basketTimer = null;
+      }
+      if (this._dropTimer !== null) {
+        clearTimeout(this._dropTimer);
+        this._dropTimer = null;
+      }
+      if (this._shakeTimer !== null) {
+        clearTimeout(this._shakeTimer);
+        this._shakeTimer = null;
+      }
+
+      // 2. Clear D3 SVG DOM nodes
+      d3.select("#apples").selectAll("*").remove();
+      d3.select("#basket_apples").selectAll("*").remove();
+
+      // 3. Reset arrays
+      this.svg = [];
+      this.basketSvg = [];
+      this.yPosValue = [];
+
+      // 4. Reset all boolean state
+      this.shacking = false;
+      this.playing = false;
+      this.appleIsGround = false;
+      this.appleIsBasket = false;
+      this.isAnimating = false;
+
+      // 5. Clear sessionStorage
+      sessionStorage.removeItem("playing");
+      sessionStorage.removeItem("shacking");
+      sessionStorage.removeItem("appleIsGround");
+      sessionStorage.removeItem("appleIsBasket");
     },
   },
 });
