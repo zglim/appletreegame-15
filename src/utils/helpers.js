@@ -53,3 +53,52 @@ export function treeYPos(i, yPosValue) {
   yPosValue.push(randomInt(min, max));
   return [yPosValue, yPosValue[i]];
 }
+
+export function calculateScore(startTime, endTime, totalApples, collectedApples) {
+  const duration = Math.floor((endTime - startTime) / 1000);
+  const completionRate = collectedApples / totalApples;
+  const completionBonus = Math.floor(completionRate * 100);
+  const timeBonus = Math.max(0, 200 - duration * 2);
+  const totalScore = completionBonus + timeBonus;
+
+  let rating = 'F';
+  if (totalScore >= 250) rating = 'S';
+  else if (totalScore >= 200) rating = 'A';
+  else if (totalScore >= 150) rating = 'B';
+  else if (totalScore >= 100) rating = 'C';
+  else if (totalScore >= 50) rating = 'D';
+
+  return {
+    duration,
+    totalApples,
+    collectedApples,
+    completionRate: Math.round(completionRate * 100),
+    totalScore,
+    rating,
+  };
+}
+
+export function getHistoryRecords() {
+  const records = localStorage.getItem('appleTreeHistory');
+  return records ? JSON.parse(records) : [];
+}
+
+export function saveHistoryRecord(record) {
+  const records = getHistoryRecords();
+  records.unshift(record);
+  if (records.length > 10) records.pop();
+  localStorage.setItem('appleTreeHistory', JSON.stringify(records));
+}
+
+export function getBestScore() {
+  return localStorage.getItem('appleTreeBestScore') || null;
+}
+
+export function saveBestScore(score) {
+  localStorage.setItem('appleTreeBestScore', JSON.stringify(score));
+}
+
+export function isNewRecord(currentScore, bestScore) {
+  if (!bestScore) return true;
+  return currentScore.totalScore > bestScore.totalScore;
+}

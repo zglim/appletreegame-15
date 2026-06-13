@@ -1,9 +1,21 @@
 import { defineStore } from "pinia";
 import * as d3 from "d3";
-import { xPos, yPos, randomInt, treeXPos } from "@/utils/helpers";
+import {
+  xPos,
+  yPos,
+  randomInt,
+  treeXPos,
+  calculateScore,
+  getHistoryRecords,
+  saveHistoryRecord,
+  getBestScore,
+  saveBestScore,
+  isNewRecord,
+} from "@/utils/helpers";
 
 export const useAppleTreeStore = defineStore("appleTree", {
   state: () => ({
+    // --- In-progress game state ---
     shacking: false,
     playing: false,
     appleIsGround: false,
@@ -12,7 +24,19 @@ export const useAppleTreeStore = defineStore("appleTree", {
     yPosValue: [],
     svg: [],
     basketSvg: [],
+    gameStartTime: null,
+    timerInterval: null,
+    elapsedSeconds: 0,
+
+    // --- Current session result (filled when game ends) ---
+    currentResult: null,
+
+    // --- History & best (loaded from localStorage) ---
+    bestScore: null,
+    historyRecords: [],
+    isRecord: false,
   }),
+
   getters: {
     shackingStatus: (state) => state.shacking,
     playingStatus: (state) => state.playing,
@@ -20,8 +44,15 @@ export const useAppleTreeStore = defineStore("appleTree", {
     svgData: (state) => state.svg,
     basketSvgData: (state) => state.basketSvg,
     appleIsBasketStatus: (state) => state.appleIsBasket,
+    currentResultData: (state) => state.currentResult,
+    bestScoreData: (state) => state.bestScore,
+    historyData: (state) => state.historyRecords,
+    isRecordData: (state) => state.isRecord,
+    elapsedTime: (state) => state.elapsedSeconds,
   },
+
   actions: {
+    // ----- setters for in-progress state -----
     setPlayingStatus(status) {
       this.playing = status;
       sessionStorage.setItem("playing", status);
@@ -39,7 +70,91 @@ export const useAppleTreeStore = defineStore("appleTree", {
       sessionStorage.setItem("appleIsBasket", status);
     },
 
-    // Tree Random Seed yPos
+    // ----- timer -----
+    startTimer() {
+      this.gameStartTime = Date.now();
+      this.elapsedSeconds = 0;
+      this.timerInterval = setInterval(() => {
+        this.elapsedSeconds = Math.floor(
+          (Date.now() - this.gameStartTime) / 1000
+        );
+      }, 1000);
+    },
+    stopTimer() {
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
+    },
+
+    // ----- history / best -----
+    loadHistory() {
+      this.historyRecords = getHistoryRecords();
+      this.bestScore = getBestScore();
+    },
+
+    // ----- scoring -----
+    finalizeGame() {
+      this.stopTimer();
+      const endTime = Date.now();
+      const totalApples = 15;
+      const collectedApples = 10;
+
+      const result = calculateScore(
+        this.gameStartTime,
+        endTime,
+        totalApples,
+        collectedApples
+      );
+
+      this.currentResult = result;
+
+      const best = getBestScore();
+      if (isNewRecord(result, best)) {
+        saveBestScore(result);
+        this.bestScore = result;
+        this.isRecord = true;
+      } else {
+        this.bestScore = best;
+        this.isRecord = false;
+      }
+
+      saveHistoryRecord({
+        ...result,
+        date: new Date().toISOString(),
+      });
+      this.historyRecords = getHistoryRecords();
+    },
+
+    // ----- full reset for new game -----
+    resetGameState() {
+      this.stopTimer();
+
+      // Clear D3 SVG elements
+      try {
+        d3.select("#apples").selectAll("*").remove();
+        d3.select("#basket_apples").selectAll("*").remove();
+      } catch (_) {
+        // DOM may not be present in tests
+      }
+
+      this.shacking = false;
+      this.appleIsGround = false;
+      this.appleIsBasket = false;
+      this.yPosValue = [];
+      this.svg = [];
+      this.basketSvg = [];
+      this.gameStartTime = null;
+      this.elapsedSeconds = 0;
+      this.currentResult = null;
+      this.isRecord = false;
+
+      sessionStorage.removeItem("shacking");
+      sessionStorage.removeItem("appleIsGround");
+      sessionStorage.removeItem("appleIsBasket");
+    },
+
+    // ----- tree / apple logic -----
     treeYPos(i) {
       const max = 340;
       const min = 30;
@@ -63,6 +178,7 @@ export const useAppleTreeStore = defineStore("appleTree", {
         this.svg.push(tree_apple);
       }
     },
+
     basketApple() {
       const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
         .href;
@@ -79,8 +195,10 @@ export const useAppleTreeStore = defineStore("appleTree", {
       }
       setTimeout(() => {
         this.setAppleIsBasketStatus(true);
+        this.finalizeGame();
       }, 5000);
     },
+
     dropDownApples() {
       for (let i = 0; i < this.svg.length; i++) {
         this.svg[i]
@@ -94,6 +212,7 @@ export const useAppleTreeStore = defineStore("appleTree", {
         this.setShackingStatus(false);
       }, 3000);
     },
+
     shakeTree() {
       this.setShackingStatus(true);
       setTimeout(() => {
