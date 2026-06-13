@@ -1,11 +1,13 @@
 <script setup>
 import { onMounted } from "vue";
+import { useAppleAnimation } from "@/composables/useAppleAnimation";
 import { useAppleTreeStore } from "@/stores/index";
+
 const appleStore = useAppleTreeStore();
+const { initApples } = useAppleAnimation();
 
 onMounted(() => {
-  appleStore.treeApple();
-  appleStore.basketApple();
+  initApples();
 });
 </script>
 

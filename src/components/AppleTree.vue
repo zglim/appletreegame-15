@@ -1,13 +1,15 @@
 <script setup>
 import AppleTree from '@/components/icons/AppleTree.vue'
+import { useAppleAnimation } from '@/composables/useAppleAnimation'
 import { useAppleTreeStore } from '@/stores/index'
-const appleStore = useAppleTreeStore()
 
+const appleStore = useAppleTreeStore()
+const { shakeAndDrop } = useAppleAnimation()
 </script>
 
 <template>
   <div :class="{ shake: appleStore.shackingStatus }" @contextmenu.prevent>
-    <AppleTree class="apple-tree" @click="appleStore.shakeTree()" />
+    <AppleTree class="apple-tree" @click="shakeAndDrop()" />
   </div>
 </template>
 

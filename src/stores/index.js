@@ -1,104 +1,124 @@
-import { defineStore } from "pinia";
-import * as d3 from "d3";
-import { xPos, yPos, randomInt, treeXPos } from "@/utils/helpers";
+import { defineStore } from 'pinia';
+import { GamePhase, TREE_APPLE_COUNT, BASKET_APPLE_COUNT, APPLE_SIZE } from '@/config/gameConfig';
 
-export const useAppleTreeStore = defineStore("appleTree", {
+export const useAppleTreeStore = defineStore('appleTree', {
   state: () => ({
+    // ── State machine ────────────────────────────────────────
+    phase: GamePhase.IDLE,
+
+    // ── Legacy boolean flags (kept for template compat) ──────
     shacking: false,
     playing: false,
     appleIsGround: false,
     appleIsBasket: false,
-    appleSize: { width: 40, height: 40 },
+
+    // ── Layout / sizing (read-only config surfaced to views) ─
+    appleSize: APPLE_SIZE,
+
+    // ── Book-keeping for positions (pure data, no DOM refs) ──
     yPosValue: [],
-    svg: [],
-    basketSvg: [],
+
+    // ── Counts ───────────────────────────────────────────────
+    treeAppleCount: TREE_APPLE_COUNT,
+    basketAppleCount: BASKET_APPLE_COUNT,
   }),
+
   getters: {
-    shackingStatus: (state) => state.shacking,
-    playingStatus: (state) => state.playing,
+    // Phase-based getters
+    isShaking:    (state) => state.phase === GamePhase.SHAKING,
+    isDropping:   (state) => state.phase === GamePhase.DROPPING,
+    isGrounded:   (state) => state.phase === GamePhase.GROUNDED,
+    isBasketDone: (state) => state.phase === GamePhase.BASKET_DONE,
+    isEnded:      (state) => state.phase === GamePhase.ENDED,
+    isIdle:       (state) => state.phase === GamePhase.IDLE,
+    isPlaying:    (state) =>
+      state.phase !== GamePhase.IDLE && state.phase !== GamePhase.ENDED,
+
+    // Legacy compat getters (used by existing templates)
+    shackingStatus:      (state) => state.shacking,
+    playingStatus:       (state) => state.playing,
     appleIsGroundStatus: (state) => state.appleIsGround,
-    svgData: (state) => state.svg,
-    basketSvgData: (state) => state.basketSvg,
     appleIsBasketStatus: (state) => state.appleIsBasket,
   },
+
   actions: {
+    // ── Phase transitions ─────────────────────────────────────
+    transitionTo(newPhase) {
+      this.phase = newPhase;
+      // Sync legacy flags
+      this.shacking      = newPhase === GamePhase.SHAKING;
+      this.appleIsGround = newPhase === GamePhase.GROUNDED
+                         || newPhase === GamePhase.BASKET_DONE;
+      this.appleIsBasket = newPhase === GamePhase.BASKET_DONE
+                         || newPhase === GamePhase.ENDED;
+      sessionStorage.setItem('phase', newPhase);
+      sessionStorage.setItem('shacking', this.shacking);
+      sessionStorage.setItem('appleIsGround', this.appleIsGround);
+      sessionStorage.setItem('appleIsBasket', this.appleIsBasket);
+    },
+
+    // ── Public actions ────────────────────────────────────────
+    startGame() {
+      this.playing = true;
+      sessionStorage.setItem('playing', true);
+      this.transitionTo(GamePhase.PLAYING);
+    },
+
+    shakeTree() {
+      if (this.phase !== GamePhase.PLAYING) return;
+      this.transitionTo(GamePhase.SHAKING);
+    },
+
+    startDrop() {
+      if (this.phase !== GamePhase.SHAKING) return;
+      this.transitionTo(GamePhase.DROPPING);
+    },
+
+    applesLanded() {
+      if (this.phase !== GamePhase.DROPPING) return;
+      this.transitionTo(GamePhase.GROUNDED);
+    },
+
+    basketFilled() {
+      if (this.phase !== GamePhase.GROUNDED) return;
+      this.transitionTo(GamePhase.BASKET_DONE);
+    },
+
+    endGame() {
+      this.transitionTo(GamePhase.ENDED);
+    },
+
+    reset() {
+      this.playing = false;
+      this.yPosValue = [];
+      sessionStorage.setItem('playing', false);
+      this.transitionTo(GamePhase.IDLE);
+    },
+
+    // ── Legacy compat setters (called by components) ──────────
     setPlayingStatus(status) {
       this.playing = status;
-      sessionStorage.setItem("playing", status);
+      sessionStorage.setItem('playing', status);
+      if (status && this.phase === GamePhase.IDLE) {
+        this.transitionTo(GamePhase.PLAYING);
+      }
     },
     setShackingStatus(status) {
       this.shacking = status;
-      sessionStorage.setItem("shacking", status);
+      sessionStorage.setItem('shacking', status);
     },
     setAppleIsGroundStatus(status) {
       this.appleIsGround = status;
-      sessionStorage.setItem("appleIsGround", status);
+      sessionStorage.setItem('appleIsGround', status);
     },
     setAppleIsBasketStatus(status) {
       this.appleIsBasket = status;
-      sessionStorage.setItem("appleIsBasket", status);
+      sessionStorage.setItem('appleIsBasket', status);
     },
 
-    // Tree Random Seed yPos
-    treeYPos(i) {
-      const max = 340;
-      const min = 30;
-      this.yPosValue.push(randomInt(min, max));
-      return this.yPosValue[i];
-    },
-
-    treeApple() {
-      const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
-        .href;
-
-      for (let i = 0; i < 15; i++) {
-        const tree_apple = d3
-          .select("#apples")
-          .append("svg:image")
-          .attr("xlink:href", imgUrl)
-          .attr("width", this.appleSize.width)
-          .attr("height", this.appleSize.height)
-          .attr("y", this.treeYPos(i))
-          .attr("x", treeXPos(this.yPosValue[i]));
-        this.svg.push(tree_apple);
-      }
-    },
-    basketApple() {
-      const imgUrl = new URL("../assets/simple-apple.svg", import.meta.url)
-        .href;
-      for (let i = 0; i < 10; i++) {
-        const basket_apple = d3
-          .select("#basket_apples")
-          .append("svg:image")
-          .attr("xlink:href", imgUrl)
-          .attr("width", this.appleSize.width)
-          .attr("height", this.appleSize.height)
-          .attr("x", xPos(i))
-          .attr("y", yPos(i));
-        this.basketSvg.push(basket_apple);
-      }
-      setTimeout(() => {
-        this.setAppleIsBasketStatus(true);
-      }, 5000);
-    },
-    dropDownApples() {
-      for (let i = 0; i < this.svg.length; i++) {
-        this.svg[i]
-          .transition()
-          .attr("y", 850)
-          .duration(1000)
-          .delay(d3.randomInt(1000, 2000));
-      }
-      setTimeout(() => {
-        this.setAppleIsGroundStatus(true);
-        this.setShackingStatus(false);
-      }, 3000);
-    },
-    shakeTree() {
-      this.setShackingStatus(true);
-      setTimeout(() => {
-        this.dropDownApples();
-      }, 100);
+    // ── Tree Y position book-keeping ──────────────────────────
+    pushTreeYPos(value) {
+      this.yPosValue.push(value);
     },
   },
 });

@@ -2,7 +2,7 @@
 import router from "@/router/index.js";
 
 function GoBackHome() {
-  router.push({ name: "Home" });
+  router.push({ name: "home" });
 }
 </script>
 

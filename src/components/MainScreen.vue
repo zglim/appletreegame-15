@@ -4,7 +4,7 @@ import router from "@/router/index.js";
 const appleStore = useAppleTreeStore();
 
 function playNow() {
-  appleStore.setPlayingStatus(true);
+  appleStore.startGame();
   router.push({ name: "game" });
 }
 </script>
